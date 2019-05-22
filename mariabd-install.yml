@@ -1,0 +1,42 @@
+--- # MARIADB INSTALLATION
+- hosts: localhost
+  remote_user: ansible
+  become: yes
+  become_method: sudo 
+  connection: ssh 
+  gather_facts: yes
+  tasks:
+    - name: Installing MariaDB
+      yum:  
+        name: httpd
+        state: latest
+      notify:
+        - startservice
+  handlers:
+    - name: startservice
+      service:
+        name: httpd
+        state: restarted
+        
+
+--- # WEBSERVER INSTALLATION
+- hosts: localhost
+  remote_user: ansible
+  become: yes
+  become_method: sudo 
+  connection: ssh
+  gather_facts: yes
+  tasks:
+    - name: Installing Webserver 
+      yum: 
+        name: httpd
+        state: latest
+      notify: 
+        - startservice
+  handlers: 
+    - name: startservice
+      service:
+        name: httpd
+        state: restarted
+
+
