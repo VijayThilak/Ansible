@@ -1,0 +1,1549 @@
+                                     
+                                    1- BASIC CHEF FLUENCY BADGE
+
+
+
+
+CHEF BASIC TERMINOLOGY:
+
+ * HIGH LEVEL CONCEPTS:
+  
+  1)INFRASTRUCTURE AS CODE: (BENEFITS)
+    
+    - Lowers cost by reducing the human time require to provision and manage infrastructure
+    - Improves speed of provisionin ( the machine can run the steps faster than a human can type)
+    - Improves Stability  and security
+
+
+   2)DESIRED STATE CONFIGURATION:
+
+     - The standard way of configuring a server uses an implicit approach where we specify each step to take to configure the server, but that isn’t how Chef (normally) works. With Chef, we specify what the final configuration should look like and let the Chef resources determine the changes that need to be made to get the server there.
+
+
+ * HIGH LEVEL TOOLS:
+
+   CHEF SERVER INSTALLATION - (Need minimum 2GB memory) :
+
+    # cd /tmp
+    # curl -O https://packages.chef.io/files/stable/chef-server/13.1.13/el/7/chef-server-core-13.1.13-1.el7.x86_64.rpm
+    # rpm -Uvh chef-server-core-13.1.13-1.el7.x86_64.rpm
+    # chef-server-ctl reconfigure
+    # chef-server-ctl service-list
+
+      The * on each line indicates that the service is enabled and running
+
+
+
+
+  * Creating Our User and Organization:
+
+    - Before we can move on, we need to set up a user and an organization to belong to. Organizations are the umbrella that we will register nodes under and associate cookbooks with as we move forward. Let’s start by creating our user:
+
+    # chef-server-ctl user-create vijay Vijay Thilak vijaythilak.s@gmail.com '#2!Qazxsw' --filename /home/cloud_user/vijay.pem
+
+    - This will create a username of Vijay and some extra metadata. An important thing to notice here is that the --filename output is an RSA key that we can use to interact with the Chef server from our workstation later on. Our next step will be creating an organization and setting ourself as the first admin user. We can do this using a similar subcommand on the chef-server-ctl utility:
+
+    # chef-server-ctl org-create testacademy 'Test Academy, Inc.' --association_user vijay --filename testacademy.pem
+
+
+   * This command is very similar to our user creation command, but it is important to note that there are some validation rules for the SHORT_ORG_NAME that we need to follow:
+
+    - Must start with a lowercase letter or number.
+    - Can only contain lowercase letters, digits, hyphens, and underscores.
+    - Must be between 1 and 255 characters long.
+    - The --association_user flag will take an existing user’s username and associate it with the admin security group on the Chef server. Lastly, the --filename flag   stores off the organization’s validator pem. We won’t be using this file during this course.
+    
+
+
+
+  * Adding chef-manage Web UI :
+
+   - Going to install web UI, it provides the chef related - node information, cookbook versions, and more. Once again, we will install this add-on using the chef-server-ctl utility:
+     
+     # chef-server-ctl install chef-manage ; chef-server-ctl reconfigure ;  chef-manage-ctl reconfigure
+
+    - Once the reconfiguration has finished, we can access the UI by going to https://SERVER_PUBLIC_IP
+
+        
+
+
+
+====== =====
+
+
+ChefDK : INSTALLING THE "CHEF DEVELOPER KIT" (CHEFDK)
+
+   # cd /tmp
+   # curl -O https://packages.chef.io/files/stable/chefdk/2.5.3/el/7/chefdk-2.5.3-1.el7.x86_64.rpm
+   # sudo rpm -Uvh chefdk-2.5.3-1.el7.x86_64.rpm
+
+- Now we have access to quite a few different tools that will be used in developing and testing our Chef code aswell as deploying things
+
+   #chef --version
+Chef Development Kit Version: 2.5.3
+chef-client version: 13.8.5
+delivery version: master (73ebb72a6c42b3d2ff5370c476be800fee7e5427)
+berks version: 6.3.1
+kitchen version: 1.20.0
+inspec version: 1.51.21
+
+ 
+
+ - The version that you see might not exactly match, but what we want to do when we're working with Chef is initialize our shell with all of the chef values using a subcommand off of the chef utility:
+
+   # chef shell-init bash
+
+- That prints out what this command does, and we can see that it modifies various environment variables so that the gems and ruby version used are the ones that come packaged with ChefDK. We'll eval this output to set these values:
+
+   # eval "$(chef shell-init bash)"
+   # which ruby
+
+
+- Now we know that we're using the proper version of ruby. Since our workstation is always going to want this set, let's customize our .bash_profile to do this by default.
+
+   # echo 'eval "$(chef shell-init bash)"' >> ~/.bash_profile
+
+
+
+
+
+
+GENERATING A CHEF-REPO :
+
+ - When developing with Chef we'll usually be working from within a "chef-repo" that holds onto our cookbooks and dependencies and is shared amongst our team(s). There are a few different ways to get started with a chef-repo and we're going to take a look at both of them. The first way is to generate one using the chef utility. Let's create one now:
+    
+   # cd ~
+   # chef generate repo generated-chef-repo
+   # cd generated-chef-repo
+   # ls -al
+
+
+- Utilizing the Chef generators makes it a lot easier for us to follow standard Chef development practices as we continue through this course. The main tool that we're going to use to connect to the Chef server is going to be the knife utility. A big difference between this repository and the one that we'll let the Chef server generate for us is that it's not pre-configured to allow us to use knife to connect to our Chef server.
+
+Let's manually create a knife configuration to communicate with the server:
+
+   # knife configure
+   https://Host_name/organizations/testacademy/
+
+
+      You must place your client key in:
+        /root/.chef/vijay.pem
+      Before running commands with Knife
+      *****
+      Configuration file written to 
+
+
+
+
+- Things to note are that we need to use the hostname from our Chef server (in this case it's keiththomps4.mylabserver.com) and also substitute in our organization's "short_name" (linuxacademy in this example).
+
+ Next, we need to copy over the pem file that we created when we created our user.(COPY FROM SERVER)
+
+   # scp cloud_user@13.234.225.17:~/vijay.pem /root/.chef/vijay.pem
+
+
+ Now we can connect to the Chef server using knife
+
+
+  $ knife node list
+
+
+ We need to pull down the certificate as a trusted cert since it is self-signed. We'll follow the steps that the output points us to:
+
+  $ knife ssl fetch
+
+
+
+** UTILIZING A STARTER KIT FROM THE CHEF SERVER:
+
+
+
+The alternative way that we can go about setting up a chef-repo is by downloading it from our Chef server as a "starter kit". To get to this download we need to log into the chef-manage UI to the path /organizations/[ORGANIZATION_NAME]/getting_started
+
+
+ - Have to download the chef-starter.zip file and copy to our chef DK machine (by scp).then unzip it
+
+  $ yum install unzip -y ; unzip chef-starter.zip
+
+
+
+The difference bt this repo and our generated repository is '.chef' directory. That configured to speak with our chef server, but it only works when our current working directory is within the chef-repo.
+
+ $ cd chef-repo
+ $ knife ssl fetch
+ $ knife node list
+
+ 
+
+      ------  -----
+
+[cloud_user@vijaythilak3c chef-repo]$ knife ssl fetch
+WARNING: Certificates from vijaythilak7c.mylabserver.com will be fetched and placed in your trusted_cert
+directory (/home/cloud_user/chef-repo/.chef/trusted_certs).
+Knife has no means to verify these are the correct certificates. You should
+verify the authenticity of these certificates after downloading.
+Adding certificate for vijaythilak7c_mylabserver_com in /home/cloud_user/chef-repo/.chef/trusted_certs/vijaythilak7c_mylabserver_com.crt
+ERROR: Errno::EACCES: Permission denied @ rb_sysopen - /home/cloud_user/chef-repo/.chef/trusted_certs/vijaythilak7c_mylabserver_com.crt
+
+
+
+
+
+===== =========
+
+
+BOOTSTRAPPING A NODE WITH KNIFE AND CHEF-CLIENT :
+
+
+https://docs.chef.io/knife_bootstrap.html
+
+ON Chef DK - Run the below command to install chef client on client machine:
+
+
+ # knife bootstrap vijaythilak6c.mylabserver.com -N web-node1 -x cloud_user -P 'client-machine-password' --sudo  --use-sudo-password
+
+To verify the node: 
+
+ # cd chef-repo/ ;  knife node list
+
+
+
+
+
+
+===== ======
+
+Supermarket : 
+
+
+- Like many large open source projects, Chef has a community of enthusiastic users and open source contributors. Besides contributing to the various Chef projects themselves, there are many contributions to the community in the form of open source cookbooks and tools
+
+
+Supermarket:
+
+Using the public supermarket
+Deploying a private supermarket
+
+
+Other Supermarket Related Tools:
+
+
+By itself a repository of cookbooks isn’t useful, we need to be able to publish, version, and download the cookbooks. There are a few recommended tools for handling these workflows:
+
+Berkshelf - used to install and manage cookbook dependencies and versions
+Stove - used to version and publish cookbooks to a supermarket (either public or private).
+
+
+
+
+===== ========
+
+TEST KITCHEN:
+
+Test Kitchen (or just “Kitchen”) is a testing harness that allows us to easily provision environments using a variety of platforms and backends so that we can test our infrastructure code. We can easily create a brand new “server” that is running a specific operating system, install Chef, run a specific run list, and then execute automated tests to ensure that the configuration that we’re expecting is configured properly. This process might sound tedious, but we can use VM tools like Vagrant or containers through Docker to rapidly create, configure, test, and destroy these environments. This is much faster and less expensive than creating servers in our cloud provider of choice (although Kitchen does have drivers to work directly with cloud providers).
+
+
+
+
+====== =======
+
+
+TROUBLESHOOTING NETWORK ISSUES:  Check the '/etc/hosts' to avoid DNS issues.
+
+
+
+
+-----------------------------------
+
+LOWER LEVEL TOOLS :
+
+Cookbooks:: 
+
+
+Chef cookbook documentation
+Berkshelf documentation
+delivery documentation
+kitchen documentation
+
+
+
+What is a cookbook?
+A cookbook is a collection of smaller building blocks that make up a useful, shareable piece of configuration. In the words of the official Chef documentation:
+
+
+
+ CHEF-DK SERVER : 
+
+ go to chef-repo then remove the default cookbook then create cookbook by
+
+  # mkdir cookbooks
+  # chef generate cookbook cookbooks/bcf_nginx   - (bcf_nginx - we can use our project or company)
+  # yum install tree -y
+
+
+--- 
+
+
+Going through this list, here’s an overview of what each file is used for:
+
+Berksfile    - Configuration file used by Berkshelf, which is the package manager for Chef. This allows us to define cookbook dependencies.
+chefignore   - Specifies the files (can use patterns) that knife should ignore when uploading contents to the Chef Server.
+.delivery    - Directory holding configuration related to using delivery when working with Chef Automate.
+.kitchen.yml - Configuration for kitchen to use for running integration tests.
+LICENSE      - The license that this cookbooks code should use.
+metadata.rb  - Includes information describing the cookbook itself. Information including compatible Chef versions, cookbook version number, name, email of maintainer, cookbook dependencies (Berkshelf uses this file also), and more.
+README.md    - Documentation for the cookbook as a whole that usually includes usage information.
+recipes      - Contains the cookbook recipes. Recipes are where the configuration happens in a cookbook.
+spec         - Directory that “unit” tests will go in. These tests don’t require an entire server to be spun up to test them.
+test         - Directory that higher level tests like “integration” tests will go in. These tests execute checks on a configured node.
+
+
+
+
+
+
+
+=======
+
+
+RECIPES::
+
+
+https://docs.chef.io/recipes.html
+
+
+Cookbooks contain everything necessary to support configuration for a given “scenario”, but recipes are where this configuration happens. 
+
+
+
+DOCUMENTATION :
+
+Chef cookbook documentation
+Chef recipe documentation
+Chef resource documentation
+The package resource documentation
+The service resource documentation
+
+
+
+* Now we are go to install in NGINX, 
+
+1) edit the file -   vim cookbooks/bcf_nginx/recipes/default.rb
+
+
+
+package "nginx"
+
+service "nginx" do
+  action [:enable, :start]
+end
+
+
+
+Here we going to install nginx in localhost (chef-dk). 
+
+# cd chef-repo ; chef-client --local-mode cookbooks/bcf_nginx/recipes/default.rb
+
+
+
+
+=======
+
+RESOURCES::
+
+
+https://docs.chef.io/resource.html
+
+
+
+ A resource is a Ruby block with four components: a type, a name, one (or more) properties (with values), and one (or more) actions. The syntax for a resource is like this:
+
+type 'name' do
+   attribute 'value'
+   action :type_of_action
+end
+
+
+
+* Now we are go to install in NGINX, 
+
+1) edit the file -   vim cookbooks/bcf_nginx/recipes/default.rb
+
+
+package "nginx"
+
+service "nginx" do
+  action [:enable, :start]
+end
+
+
+file "/usr/share/nginx/html/index.html" do
+	content "<h1>Hello, world!</h1>"
+	action :create
+	not_if { ::File.exists?("/usr/share/nginx/html/index.html") }     ## Guard checks the file is already exists or not. If its there it will not create new file or create it.
+end
+
+
+
+   
+
+
+
+
+ ======
+
+NODE:
+
+https://docs.chef.io/knife_node.html
+
+ A node is any device—physical, virtual, cloud, network device, etc.—that is under management by Chef Infra. 
+
+
+ Command To See the node -
+
+
+ # knife node show web-node1  > short version in yaml
+
+ # knife node show  -F json -l web-node1 > long version in JSON
+
+
+
+
+
+
+ ======
+
+Run Lists:
+
+
+https://docs.chef.io/run_lists.html
+
+A run-list defines all of the information necessary for Chef to configure a node into the desired state. A run-list is:
+
+
+
+Go & edit  vim /chef-repo/cookbooks/bcf_nginx/metadata.rb 
+
+name 'bcf_nginx'
+maintainer 'Vijay Thilak'
+maintainer_email 'vijaythilak.s@gmail.com'
+license 'All Rights Reserved'
+description 'Installs/Configures bcf_nginx'
+long_description 'Installs/Configures bcf_nginx'
+version '1.0.0'
+chef_version '>= 12.14' if respond_to?(:chef_version)
+
+
+Then upload the cookbooks to server and check the web UI   
+
+#  knife upload cookbooks/bcf_nginx/                                                  
+
+[root@vijaythilak3c chef-repo]# knife node run_list add web-node1 'recipe[bcf_nginx::default]' 
+web-node1:
+  run_list: recipe[bcf_nginx::default]
+
+
+[root@vijaythilak3c chef-repo]# knife node show web-node1
+Node Name:   web-node1
+Environment: _default
+FQDN:        vijaythilak4c.mylabserver.com
+IP:          15.206.70.117
+Run List:    recipe[bcf_nginx::default]
+Roles:       
+Recipes:     
+Platform:    centos 7.6.1810
+Tags:        
+[root@vijaythilak3c chef-repo]# knife node run_list set web-node1 bcf_nginx
+web-node1:
+  run_list: recipe[bcf_nginx]
+
+
+To Install  nginx on node # knife ssh 'name:web-node1' 'sudo chef-client' -x cloud_user 
+
+
+
+
+=====
+
+Roles: -- > In simple words, Reuse and don't repeat again.
+
+
+
+A role is a way to define certain patterns and processes that exist across nodes in an organization as belonging to a single job function
+
+https://docs.chef.io/roles.html
+
+
+Run-lists are incredibly important because nothing would really happen if we didn’t have them, but it’s pretty common for us to want to reuse a run-list. In this lesson, we’ll learn to do just that by defining a role.
+
+
+What is a Role?
+Officially, a role is “a way to define certain patterns and processes that exist across nodes in an organization as belonging to a single job function”. A simple way to think of this is that a role is a repeatable, named run-list that can also define shared attributes. Say we want to create a group of users on every server and install some universal tools (for instance vim).
+
+Let’s create a few more cookbooks that can be responsible for these things and then create a role called “base” that we can add to each node.
+
+Creating Additional Cookbooks
+We’ll create two more cookbooks:
+
+bcf_essentials - Install essential tools like vim.
+bcf_users - Create users.
+We’ve named both of these cookbooks with bcf_ because all cookbooks need to be uniquely named and it’s a common practice to prefix custom cookbooks with your company or project name. For this course we’re using bcf_ for “basic chef fluency”, and this prefix will prevent our cookbooks from colliding with any potential third-party cookbooks that we might use.
+
+
+# chef generate cookbook cookbooks/bcf_essentials
+...
+# chef-repo $ chef generate cookbook cookbooks/bcf_users
+
+...
+While our focus is on building up a role for ourselves, we’re going to learn more about writing cookbooks in the process.
+
+
+
+
+
+
+BUILDING THE BCF_ESSENTIALS COOKBOOK:
+
+The bcf_essentials cookbook is a fairly generic cookbook that will be in charge of installing and configuring some of our universal software. As you can imagine, there might be quite a few different tools that we want to install and configure, and this is a great opportunity for us to be able to separate these out into self-contained recipes. Let’s create a recipe specifically to install and configure vim by create a new recipe file at ~/chef-repo/cookbooks/bcf_essentials/recipes/vim.rb:
+
+# chef generate recipe cookbooks/bcf_essentials vim
+
+
+
+
+
+~/chef-repo/cookbooks/bcf_essentials/recipes/vim.rb
+
+package "vim"
+
+cookbook_file "/etc/vimrc" do
+  source "default/vimrc"
+end
+The first thing that we do is install vim using the package resource that we’ve used before. Next, we create a custom, global vim configuration file. The cookbook_file resource is new to us, but it allows us to package up default files in a separate files directory within our cookbook so that we don’t have to specify the content within the ruby code. Let’s create this file now:
+
+
+
+# chef generate file cookbooks/bcf_essentials vimrc
+
+Using the chef generate command again we’re able to ensure that we’re structuring our cookbook in an idiomatic way. Let’s now put some configuration into this file:
+
+
+~/chef-repo/cookbooks/bcf_essentials/files/default/vimrc
+
+set nocompatible
+
+filetype off
+filetype plugin indent on
+
+syntax on
+
+set number
+set autoindent
+set backspace=indent,eol,start
+set noswapfile
+
+
+
+This recipe is actually something that we might like to use on our workstation, so let’s run it to make sure that it works:
+
+[workstation] chef-repo $ sudo chef-client --local-mode -o 'recipe[bcf_essentials::vim]'
+[2018-05-16T15:57:43+00:00] INFO: Started chef-zero at chefzero://localhost:1 with repository at /home/user/chef-repo
+
+Chef Client finished, 1/2 resources updated in 06 seconds
+
+
+
+Notice that we referenced the individual recipe from within the cookbook by combining the cookbook name and recipe name using ::. The last thing that we want to do is ensure that this recipe is run when the default recipe is run. We can do this by using include_recipe:
+
+~/chef-repo/cookbooks/bcf_essentials/recipes/default.rb
+
+include_recipe "bcf_essentials::vim"
+We can use this approach to break a large cookbook into multiple, discrete recipes that we can use individually or combine.
+
+
+
+
+CREATING THE BCF_USERS COOKBOOK :
+
+We’re only going to define a default recipe for the bcf_users cookbook, but we’ll use a new resource, the user resource. Here’s what we get:
+
+~/chef-repo/cookbooks/bcf_users/recipes/default.rb
+
+user "jenkins" do
+  comment "a user for CI/CD"
+  password "secure_password"
+end
+Hardcoding the password into the recipe is bad, but we’ll fix this later after we’ve learned about data bags.
+
+
+
+CREATING A ROLE :
+
+With our new cookbooks defined, let’s create a role that we can use to install our “essentials” and create the CI/CD user:
+
+[workstation] chef-repo $ knife role create base
+ERROR: RuntimeError: Please set EDITOR environment variable. See https://docs.chef.io/knife_setup.html for details.
+We’re receiving an error because knife wants to open our editor with a file for us to edit and it will upload the results when we save and exit. Let’s set this environment variable in ~/.bash_profile so that it’s always set from now on (substitute vim with your preferred editor):
+
+[workstation] echo 'export EDITOR=vim' >> ~/.bash_profile
+[workstation] export EDITOR=vim
+
+
+
+
+Now we’re ready to create our base role:
+
+[workstation] chef-repo $ knife role create base
+
+For now, we’re going to fill out the run_list key to include recipe[bcf_essentials] and recipe[bcf_users]. This is what it will look like before we save and exit:
+
+{
+  "name": "base",
+  "description": "Sets up the essential tools and users. Should be used by all nodes.",
+  "json_class": "Chef::Role",
+  "default_attributes": {
+
+  },
+  "override_attributes": {
+
+  },
+  "chef_type": "role",
+  "run_list": [
+    "recipe[bcf_essentials]",
+    "recipe[bcf_users]"
+  ],
+  "env_run_lists": {
+
+  }
+}
+When we save and exit we’ll see that the role was saved. Just like the node object type, we have access to the CRUD actions for role through knife role. Let’s take a look at our existing roles:
+
+[workstation] chef-repo $ knife role list
+base
+[workstation] chef-repo $ knife role show base
+chef_type:           role
+default_attributes:
+description:         Sets up the essential tools and users. Should be used by all nodes.
+env_run_lists:
+json_class:          Chef::Role
+name:                base
+override_attributes:
+run_list:
+  recipe[bcf_essentials]
+  recipe[bcf_users]
+Assigning a Role to a Node
+When we looked at run-lists we mentioned that you could list recipes and roles. Let’s add our role to the run-list for web-node1, making sure that it’s the first item in the run-list:
+
+[workstation] chef-repo $ knife node run_list add web-node1 'role[base]' --before 'recipe[bcf_nginx]'
+web-node1:
+  run_list:
+    role[base]
+    recipe[bcf_nginx]
+Finally, we need to upload our new cookbooks and run chef-client on our node again for the recipes in our role to be run:
+
+[workstation] chef-repo $ knife upload cookbooks/bcf_essentials cookbooks/bcf_users
+Created cookbooks/bcf_essentials
+Created cookbooks/bcf_users
+[workstation] chef-repo $ knife ssh 'name:web-node1' 'sudo chef-client'
+user@keiththomps3.mylabserver.com's password:
+keiththomps3.mylabserver.com knife sudo password:
+
+keiththomps3.mylabserver.com Chef Client finished, 2/7 resources updated in 09 seconds
+
+
+
+
+
+
+=====
+
+
+ENVIRONMENTS :
+
+
+https://docs.chef.io/environments.html
+https://docs.chef.io/knife_environment.html
+
+
+An environment is a way to map an organization’s real-life workflow to what can be configured and managed when using Chef Infra. 
+
+
+# TO Create environment --
+
+$ knife environment create staging --description 'Pre-production, staging environment for internal access only.'   
+
+$ knife environment create production --description 'Production environment'
+
+
+
+# TO list environment --
+
+$ knife environment list
+
+
+
+# TO check the existing node  current environment --
+
+$ knife node show web-node1 -a environment
+
+
+# TO set the environment to node --
+
+$ knife node environment_set web-node1 staging
+
+
+
+
+
+=====
+
+
+ATTRIBUTES :
+
+
+Attributes are variable pieces of data that are associated with a node or set when a recipe is run. These attributes can be used to within recipes to change how resources are applied.
+
+https://docs.chef.io/attributes.html
+
+https://docs.chef.io/ohai.html
+
+
+
+
+*** Go to chef-repo then create cookbooks and edit bcf_motd /recipes/default.rb,then  run locally:
+
+
+
+$ chef generate cookbook cookbooks/bcf_motd
+$ vim /chef-repo/cookbooks/bcf_motd/recipes/default.rb
+
+file "/etc/motd" do
+  content "IP Address: #{node['ipaddress']}
+Catch Phrase: #{node['catch_phrase']}
+"
+end
+
+
+** There are a few new things here:
+
+The #{node['ipaddress']} is an example of string interpolation in Ruby which allows us to exercise some Ruby code within the #{...} and have that value written into the output string. One thing to note is that the string must use double-quotes (") for this feature to work.
+We're interacting with the node object, which is a key-value pair object that we can read information from.
+
+
+
+$ sudo chef-client --local-mode -r 'recipe[bcf_motd]'
+
+
+The node object is built up during the chef-client run, and the ipaddress value is one of the values determined by Ohai. The catch_phrase attribute is not set at all, so nothing is put into the file, but no error occurs. The ipaddress attribute is one of the "automatic" attributes.
+
+
+
+SETTING ATTRIBUTES:
+
+
+
+$ vim /chef-repo/cookbooks/bcf_motd/recipes/default.rb
+
+node.force_override['ipaddress'] = '127.0.0.1'
+node.normal['catch_phrase'] = 'Welcome to the kitchen'
+node.force_default['catch_phrase'] = 'Cooking with Gas!'
+
+file "/etc/motd" do
+  content "IP Address: #{node['ipaddress']}
+Catch Phrase: #{node['catch_phrase']}
+"
+end
+
+
+
+$ sudo chef-client --local-mode -r 'recipe[bcf_motd]'
+
+Notice that the IP address didn't change because the ipaddress attribute is an "automatic" attribute. 
+Additionally, even though we would have set the catch_phrase to "Cooking with Gas!" after we set it to "Welcome to the kitchen" it wasn' changed because normal has precedence over force_default.
+
+
+
+Using an Attributes FILES::
+
+
+Another way that we're able to set attributes is through attributes files in our cookbooks. Let's generate one now and move our attribute settings into that file:
+
+
+We're currently in the bcf_motd directory so the path of . will work.
+
+$ chef generate attribute . default
+
+
+then edit the file
+
+$ vim /chef-repo/cookbooks/bcf_motd/attributes/default.rb 
+
+node.normal['catch_phrase'] = 'Welcome to the kitchen'
+node.force_default['catch_phrase'] = 'Cooking with Gas!'
+
+
+
+
+We'll also remove setting those attributes from the recipe:
+
+
+/chef-repo/cookbooks/bcf_motd/recipes/default.rb
+
+file "/etc/motd" do
+  content "IP Address: #{node['ipaddress']}
+Catch Phrase: #{node['catch_phrase']}
+"
+end
+
+
+Then run locally :
+
+
+$ sudo chef-client --local-mode -r 'recipe[bcf_motd]'
+
+
+
+
+
+SETTING ATTRIBUTES IN ROLES/ENVIRONMENTS/NODE OBJECTS::
+
+
+We've looked at the nodes, roles, and environments up to this point, and we know that we can edit them as JSON using knife [type] edit -F json [item_name], but we've never set attributes. How do we set attributes using JSON? To see this in action we're going to need to use the Chef server, so we need to run our cookbook on a node. To accomplish this we'll need to do the following:
+
+1.Upload our cookbook.
+2.Add it to the base role.
+3.Edit our staging environment attributes.
+4.Run chef-client on the node.
+
+
+
+
+          $ cd ../../
+chef-repo $ knife upload cookbook cookbooks/bcf_motd
+          $ knife role run_list add base 'bcf_motd'
+          $ knife environment edit -F json staging
+
+
+
+
+
+  },
+  "override_attributes": {
+    "catch_phrase": "Delivering in Staging"   # Add this only
+
+
+ **** TO EDIT THE ROLE - #  knife role edit role_name 
+
+Then run on chef client and check :
+
+
+$ knife ssh 'name:web-node1' 'sudo chef-client'
+
+
+$ knife ssh 'name:web-node1' 'cat /etc/motd'
+
+
+
+
+
+======
+
+
+DATA BAGS & DEPENDENCIES - PART 1
+
+
+
+https://docs.chef.io/data_bags.html
+
+
+
+Data bags store global variables as JSON data. Data bags are indexed for searching and can be loaded by a cookbook or accessed during a search.
+
+
+The users cookbook provides us with a new users_manage resource that allows us to manage the users on our servers by setting information in data bags, preventing us from hardcoding values like we have already (which we would also be doing if we used attributes).
+
+
+
+
+WORKING WITH DATA BAGS :
+
+The default data bag that the users_manage resource expects is called users, so we'll create that now using knife data bag create.
+
+
+
+  [cloud_user@vijaythilak3c chef-repo]$ knife data bag create users
+  Created data_bag[users]
+
+
+We need to encrypt the Jenkins user's password before creating the data bag for it:
+
+
+  [cloud_user@vijaythilak3c chef-repo]$ openssl passwd -1 "secure_password"
+  $1$Ep3AHe7N$XlUeotj.wjvAg30DKb7M5.
+
+
+
+From our bcf_users cookbook our information for the jenkins user would look like this:
+
+
+
+   {
+     "id": "jenkins",
+     "comment": "A user for CI/CD",
+     "password": "$1$Ep3AHe7N$XlUeotj.wjvAg30DKb7M5.",
+     "groups": ["ci"],
+     "uid": 2001
+   }
+
+
+
+Now we'll add this item to the data bag:
+
+   [workstation] chef-repo $ knife data bag create users jenkins
+
+
+
+We'll also create a user for ourselves (the user user) that includes SSH key information so that we no longer need to use passwords to SSH to our nodes. An alternative way to create an manage a data bag is to use a JSON file within the repo. We'll create a directory and a JSON file.
+
+
+  [root@vijaythilak3c chef-repo]# mkdir -p data_bags/users
+  [root@vijaythilak3c chef-repo]# touch data_bags/users/cloud_user.json
+  [root@vijaythilak3c chef-repo]# ssh-keygen -t rsa -C "vijaythilak.s@gmail.com"
+
+
+
+We'll need to copy the contents of ~/.ssh/id_rsa.pub so that we can paste it into our data bag now.
+
+
+
+   {
+     "id": "cloud_user",
+     "password": "$1$x2c/ZLCa$szcG5mRkPRXk9DuKgvUHb/",
+     "uid": 1001,
+     "groups": ["wheel", "dev"],
+     "ssh_keys": [
+        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDJ58Y1dbAqbNO+5lXTvIJg1T5gegzB+ghVAUC7Vx09FuTFPjqyaAVuUy0byIApBxCAxRNrZuvAiRTiliJtzr3CzsA9GA63xikKvl7xudSezYKkB82Mahb4K1N5M46csGa
+   eh/wB4906OoMYzuSBXzoZ8cVJ1mzW0AKpOWHe9eF3JyQd6DpgK+lb7XLeyY8g0ESXCElUfA8X8Zy7lpptxcoaa0hRiUZkEyvyVyT7WD0OmwF2gcf5YNB8z4mYNOfr2M+sDgdDN/y+zKSyPzFtkvuUliY+nWItrJXCl/X7O59E7ok4
+   S72SpnIwIE0GNBLmC3zN+r33qewkhnI3g8tBj7mR vijaythilak.s@gmail.com"]
+   }
+~           
+
+Now we can create this item using the from file sub-command off of knife data bag.
+
+
+  [root@vijaythilak3c chef-repo]# knife data bag from file users data_bags/users/cloud_user.json 
+  Updated data_bag_item[users::cloud_user]
+
+
+
+
+
+
+-----
+
+
+DATA BAGS & DEPENDENCIES - PART 2 :
+
+https://supermarket.chef.io/cookbooks/users
+
+https://docs.chef.io/berkshelf.html
+
+
+
+
+A BETTER USERS COOKBOOK :
+
+Edit the below file 
+
+# vim /chef-repo/cookbooks/bcf_users/metadata.rb
+
+name 'bcf_users'
+maintainer 'The Authors'
+maintainer_email 'you@example.com'
+license 'All Rights Reserved'
+description 'Installs/Configures users'
+long_description 'Installs/Configures users'
+version '1.0.0'
+chef_version '>= 12.14' if respond_to?(:chef_version)
+
+depends 'users', '~> 5.3.1'
+
+
+
+Note: that we update the version in addition to adding the dependency.
+
+Now we'll update our default recipe:
+
+~/chef-repo/cookbooks/bcf_users/recipes/default.rb
+
+users_manage "wheel"
+users_manage "ci"
+
+
+
+!! The users_manage will look for items in the users data bag matching the name specified and manage those users. Now we're ready to upload our modified cookbook, and since we have dependencies now we're going to use Berkshelf to also download the dependent cookbooks to the Chef Server
+
+
+
+
+
+
+========
+
+
+SEARCH :
+
+https://docs.chef.io/chef_search.html
+
+https://docs.chef.io/knife_search.html
+
+
+CHEF SERVER SEARCH INDEXES :
+
+
+When we used knife ssh we were implicitly searching through "nodes", but the Chef Server holds onto other indexes. We can search the following indexes:
+
+client
+node
+environment
+role
+DATA_BAG_NAME - Note: we'll use the actual name of the data bag, so we would search explicitly on our users data bag.
+To search over any of these indexes we'll use knife search [index name] [query] [flags]. Here's an example using the users data bag since it's the most unique of the possible indexes:
+
+
+
+
+CHEF SEARCH QUERY SYNTAX :
+
+
+
+
+The query takes the format of multiple key:search_pattern joined by AND, OR, and NOT. Both the key and the search_pattern can use the following pattern expressions:
+
+* - match 0 or more characters
+? - match exactly 1 character
+[ TO ] - inclusive range (will return item matching the bound)
+{ TO } - exclusive range (will not return item matching the bounds)
+
+
+[cloud_user@vijaythilak3c chef-repo]$ knife search node 'IP*'
+2 items found
+Node Name:   web-node2
+Environment: _default
+FQDN:        vijaythilak6c.mylabserver.com
+IP:          3.6.94.31
+Run List:    
+Roles:       
+Recipes:     
+Platform:    redhat 8.0
+Tags:        
+Node Name:   web-node1
+Environment: _default
+FQDN:        vijaythilak4c.mylabserver.com
+IP:          15.206.82.181
+Run List:    
+Roles:       
+Recipes:     
+Platform:    centos 7.7.1908
+Tags:        
+
+
+[cloud_user@vijaythilak3c chef-repo]$ knife search node 'web*'
+2 items found
+Node Name:   web-node2
+Environment: _default
+FQDN:        vijaythilak6c.mylabserver.com
+IP:          3.6.94.31
+Run List:    
+Roles:       
+Recipes:     
+Platform:    redhat 8.0
+Tags:        
+Node Name:   web-node1
+Environment: _default
+FQDN:        vijaythilak4c.mylabserver.com
+IP:          15.206.82.181
+Run List:    
+Roles:       
+Recipes:     
+Platform:    centos 7.7.1908
+Tags:        
+
+
+
+
+
+UTILIZING SEARCH IN RECIPES :
+
+
+Knowing how to search using knife is extremely useful, but we can also use this search within our recipes. To demonstrate how we can do this, we're going to add another resource to our bcf_nginx cookbook to have an HTML page outputting the available environments in our Chef Server. We'll add this right to the default recipe:
+
+
+
+
+
+
+
+=========
+
+
+NOTIFICATIONS:
+
+
+$ vim /chef-repo/cookbooks/bcf_nginx/recipes/default.rb
+
+
+package "nginx"
+
+service "nginx" do
+  action [:enable, :start]
+  subscribes :reload, 'file[/etc/nginx/example.conf]'
+end
+
+file "/usr/share/nginx/html/index.html" do
+  content "<h1>Hello, world!</h1>"
+  action :create
+  not_if { ::File.exists?("/usr/share/nginx/html/index.html") }
+end
+     
+
+
+
+
+
+
+--------
+
+USING CONDITIONALS :
+
+https://docs.chef.io/ruby.html
+
+https://docs.chef.io/ruby.html#statements
+
+
+
+ A great example of this would be writing a cookbook that installs Apache and is required to work on both Debian and Red Hat based systems. The Apache web server has a different name between these to platforms (apache2 vs httpd)
+
+vim  cookbooks/bcf_webservers/recipes/default.rb
+
+package 'apache' do
+  if node['platform_family'] == 'debian'
+    package_name 'apache2'
+  else 
+    package_name 'httpd'
+  end
+  action :install
+end
+
+
+
+
+=======
+
+          DESCRIBING CHEF
+
+Habitat : 
+
+
+
+
+
+
+
+
+-----
+
+
+INSPEC & CHEF COMPLIANCE :
+
+
+https://www.inspec.io/
+https://www.inspec.io/docs/
+
+
+
+What is Chef Compliance?
+Chef Compliance is a feature of Chef Automate that allows us to store and remotely run compliance profiles on our infrastructure. This allows us to automate the checking and correcting of compliance issues within our infrastructure. Chef Compliance comes with a variety of professionally created and vetted compliance profiles that we can use right away as part of Chef Automate to check the status of our infrastructure.
+
+Note: there is a legacy, standalone variation of Chef Compliance that runs outside of Chef Automate.
+
+The scanning of remote nodes is done via SSH or WinRM and even works on servers that don't have chef-client installed.
+
+What is InSpec?
+InSpec is the testing framework that Chef Compliance is built upon. Over time we can build up compliance profiles (test suites) that we can run on our infrastructure to ensure that they're meeting the various compliance requirements that we've defined. InSpec is the next-generation of another tool that we might have heard of called "ServerSpec".
+
+Compliance profiles can be standalone, or we can use InSpec to write tests within our cookbooks (which we'll be doing in another lesson). In addition to writing our own compliance profiles, we can also leverage community profiles from the Supermarket in the same way that we're able to pull in Chef cookbooks.
+
+Since we're already been working with the ChefDK, we have access to the inspec CLI already.
+
+Creating a Compliance Profile
+Let's generate a compliance profile using the InSpec CLI to see how one would be built:
+
+[workstation] ~ $ mkdir profiles
+[workstation] ~ $ cd profiles/
+[workstation] profiles $ inspec init profile my-nginx
+
+
+
+
+------
+
+CHEF AUTOMATE & VISIBILITY :
+
+https://docs.chef.io/chef_automate.html
+
+What is Chef Automate?
+Chef Automate is a separate server that can be deployed to provide the following value to your organization:
+
+Visibility - See the status of Nodes' chef-client runs.
+Compliance - Remote compliance scanning and visibility.
+Workflow (Legacy only) - Continuous Delivery capabilities.
+
+
+
+
+
+
+
+
+
+
+
+-----
+
+   THE CHEF WORKFLOW ::
+
+Chef is Written in Ruby :
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

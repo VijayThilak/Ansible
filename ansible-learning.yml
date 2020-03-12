@@ -14,7 +14,8 @@
   To List hosts : 
 
   root    ALL=(ALL)       ALL
-test ALL=(ALL)  ALL
+  test ALL=(ALL)  ALL
+  
 ## Allows members of the 'sys' group to run networking, software, 
 ## service management apps and more.
 # %sys ALL = NETWORKING, SOFTWARE, SERVICES, STORAGE, DELEGATING, PROCESSES, LOCATE, DRIVERS
@@ -23,8 +24,52 @@ test ALL=(ALL)  ALL
 test ALL=(ALL)  ALL
 ## Same thing without a password
 # %wheel        ALL=(ALL)       NOPASSWD: ALL
- sudo   ALL=(ALL:ALL)   NOPASSWD: ALL
+ test    ALL=(ALL:ALL)   NOPASSWD: ALL
 
+
+
+
+
+
+ --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+         SHELL SCRIPT TO COPY SSH-KEYGEN TO MULTIPLE HOSTS
+
+ for server in `cat server.txt`;  
+do  
+      sshpass -p "PASSWORD" ssh-copy-id -i ~/.ssh/id_rsa.pub cloud_user@$server  
+      function ssh(){ /usr/bin/ssh $@ ; exit ; } 
+      ssh user@$server "echo test sudo   ALL=(ALL:ALL)   NOPASSWD: ALL" >> /etc/hostname
+    done
+
+----
+
+SSH-LOGIN 
+
+for hosts in `cat hosts.txt`;
+do
+
+      sshpass -p 'PASSWORD' ssh   sysadmin@$hosts  "uptime"  << EOF
+      #sshpass -p "ServLeT1&1c" ssh -o ConnectTimeout=10 sysadmin@$hosts
+      #ssh user@$hosts "echo test sudo   ALL=(ALL:ALL)   NOPASSWD: ALL" >> /etc/hostname
+      
+EOF
+done
+
+----
+
+COPY SSH-KEYGEN 
+
+for hosts in `cat hosts.txt`;  
+do  
+   
+      sshpass -p 'PASSWORD' ssh-copy-id -i ~/.ssh/id_rsa.pub sysadmin@$hosts  
+      sshpass -p "PASSWORD" ssh -o StrictHostKeyChecking=no  sysadmin@$hosts   << EOF
+EOF
+done
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
  [test@vijaythilak1c playbooks]$ ansible all --list-hosts
@@ -98,7 +143,9 @@ webdefaults.yml
 apache_version: 2.6
 apache_mod_req: mod_ssl
 
-then 
+then create myfirstplaybook.yml
+
+
 
 --- # My First YAML playbook for Ansible
 - hosts: apacheweb
@@ -279,6 +326,7 @@ mkdir outline
   - name: verify the web server is running
     command: systemctl status httpd
     register: result
+    ignore_errors: yes 
   - debug: var=result
 
 https://linuxacademy.com/community/posts/show/topic/7761-ansible-restart-web-service-problem-with-check
@@ -295,7 +343,7 @@ https://linuxacademy.com/community/posts/show/topic/7761-ansible-restart-web-ser
 
 
 ---------
-10. Asychronous Polling: Running opertions in parallel 
+10. Asychronous Polling: Running operations in parallel 
 
 # Large number of machines or in a more constrained environment you may have to lower max fork value and launch things asynchronously
 
@@ -469,6 +517,7 @@ https://linuxacademy.com/cp/socialize/index/type/community_post/id/14530
 
 
 
+
 ----------
 
 15.Loops: Often you’ll want to do many things in one task, such as create a lot of users, install a lot of packages, or repeat a polling step until a certain result is reached.
@@ -477,44 +526,41 @@ https://linuxacademy.com/cp/socialize/index/type/community_post/id/14530
  
  TO ADD USERS :-
 
---- # LOOP PLAYBOOK EXAMPLE
+ --- # LOOP Playbook Example
+
 - hosts: apacheweb
-  user: test 
+  user: test
   become: yes
   become_method: sudo
   connection: ssh
   gather_facts: no
   tasks:
-    - name: Adding users
-      user:
-         name: "{{ item }}"
-         state: present
-         group: "wheel"
-      loop:
-         - user1
-         - user2
-         - user3
- 
+    - name: Add a list of users
+      user: name={{ item }} state=present
+      with_items:
+        - user1
+        - user2
+        - user3
+~                                                                                                                                             
+~                           
 
  TO REMOVE USERS :-
 
---- # LOOP PLAYBOOK EXAMPLE
+--- # LOOP Playbook Example
+
 - hosts: apacheweb
-  user: test 
+  user: test
   become: yes
   become_method: sudo
   connection: ssh
   gather_facts: no
   tasks:
-    - name: removing users
-      user:
-         name: "{{ item }}"
-         state: absent
-         group: "wheel"
-      loop:
-         - user1
-         - user2
-         - user3
+    - name: Add a list of users
+      user: name={{ item }} state=absent
+      with_items:
+        - user1
+        - user2
+        - user3
 
 
 
@@ -726,7 +772,1559 @@ Now create a Master playbook:
         - verification
 
 
-ansible-playbook tags.yml --tags "verification"
+
+***Command To Run TAGS:
+
+ ansible-playbook tags.yml --tags "verification"
+
+
+
+
+--------------
+
+23.Basic Error Handling: (Ignore and move on) we can ignore,display message,register results. If there's an error, the playbook stops. It will not execute further.So we use error handling.
+
+
+--- # ERROR HANDLING EXAMPLE
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks: 
+    - name:  Execute a command that will fail
+      command: /bin/false
+      ignore_errors: yes               # this will ignore the errors.
+    - name: Install telnet
+      yum: pkg=telnet state=latest
+
+
+
+
+[test@vijaythilak1c playbooks]$ ansible-playbook 23.error-handling.yml 
+[WARNING]: log file at /var/log/ansible.log is not writeable and we cannot create it, aborting
+PLAY [apacheweb] *****************************************************************************************************************************
+TASK [Execute a command that will fail] ******************************************************************************************************
+fatal: [vijaythilak3c.mylabserver.com]: FAILED! => {"changed": true, "cmd": ["/bin/false"], "delta": "0:00:00.002452", "end": "2019-05-23 12:5
+4:13.055254", "msg": "non-zero return code", "rc": 1, "start": "2019-05-23 12:54:13.052802", "stderr": "", "stderr_lines": [], "stdout": "", "
+stdout_lines": []}
+...ignoring
+fatal: [vijaythilak2c.mylabserver.com]: FAILED! => {"changed": true, "cmd": ["/bin/false"], "delta": "0:00:00.003135", "end": "2019-05-23 12:5
+4:13.058265", "msg": "non-zero return code", "rc": 1, "start": "2019-05-23 12:54:13.055130", "stderr": "", "stderr_lines": [], "stdout": "", "
+stdout_lines": []}
+...ignoring
+TASK [Install telnet] ************************************************************************************************************************
+ok: [vijaythilak2c.mylabserver.com]
+ok: [vijaythilak3c.mylabserver.com]
+PLAY RECAP ***********************************************************************************************************************************
+vijaythilak2c.mylabserver.com : ok=2    changed=1    unreachable=0    failed=0   
+vijaythilak3c.mylabserver.com : ok=2    changed=1    unreachable=0    failed=0   
+
+
+
+
+--------------
+
+24.Includes - Breaking Your Playbook Into Discrete Plays: 
+
+
+For example :
+ - Create a directory 'include' and sub-directory packages,commands,variables
+             
+             - mkdir -p include/packages
+             - mkdir -p include/commands
+             - mkdir -p include/variables
+             - mkdir -p include/handler
+
+then cd packages --> create a yml file 'packages.yml'
+
+- name: Install the Apache web server
+  yum: pkg=httpd state=latest
+  notify: Restart HTTPD
+- name: Install the lynx web Browser
+  yum: pkg=lynx state=latest
+
+
+then vim variables/variables.yml
+
+ version: 1.0.b
+
+then vim commands/commands.yml
+
+- name: Make sure Lynx is installed and then log it
+  raw: yum list installed| grep lynx > /home/test/pkg.log
+
+then vim handler/handler.yml
+
+- name: Restart HTTPD 
+  service: name=httpd state=restarted
+
+
+Let's Create a file webstuff.yml
+
+--- # Web Playbook
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  vars_files:
+    -  variables/variables.yml
+  tasks:
+    - include: packages/packages.yml
+    - include: commands/commands.yml
+  handlers:
+    - include: handler/handler.yml
+    - name:  packages verification
+      shell: systemctl status httpd
+      
+
+
+
+
+--------------
+
+25.Starting At Task or Stepping Through All Tasks: We can use this method to run particular tasks  by metioning like this  '-start-at-task='Install Lynx'    OR  use  '--step' mehtod to pick which one we want  to install
+
+--- # START AT PLAYBOOK EXAMPLE
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo 
+  connection: ssh 
+  gather_facts: no
+  tasks:
+    - name: Install Telnet
+      yum: pkg=telnet state=latest
+    - name: Install Lynx
+      yum: pkg=lynx state=latest
+    - name: List home
+      command: ls -la /home/test
+      register: result
+    - debug: var=result
+
+
+
+***Command To Run Particular Tasks:
+
+  ansible-playbook 25.startat.yml --start-at-task='Install Lynx'            ##  It excutes from the point where we mentioned
+
+  
+  ansible-playbook 25.startat.yml --step         # This will ask  "yes or no or conitue"  to user.
+
+
+
+
+
+  [test@vijaythilak1c playbooks]$  ansible-playbook 25.startat.yml --step
+[WARNING]: log file at /var/log/ansible.log is not writeable and we cannot create it, aborting
+PLAY [apacheweb] *****************************************************************************************************************************
+Perform task: TASK: Install Telnet (N)o/(y)es/(c)ontinue: y
+Perform task: TASK: Install Telnet (N)o/(y)es/(c)ontinue: ************************************************************************************
+TASK [Install Telnet] ************************************************************************************************************************
+changed: [vijaythilak2c.mylabserver.com]
+changed: [vijaythilak3c.mylabserver.com]
+Perform task: TASK: Install Lynx (N)o/(y)es/(c)ontinue: n
+Perform task: TASK: Install Lynx (N)o/(y)es/(c)ontinue: **************************************************************************************
+Perform task: TASK: List home (N)o/(y)es/(c)ontinue: c
+Perform task: TASK: List home (N)o/(y)es/(c)ontinue: *****************************************************************************************
+TASK [List home] *****************************************************************************************************************************
+changed: [vijaythilak2c.mylabserver.com]
+changed: [vijaythilak3c.mylabserver.com]
+TASK [debug] *********************************************************************************************************************************
+ok: [vijaythilak2c.mylabserver.com] => {
+    "result": {
+        "changed": true, 
+        "cmd": [
+            "ls", 
+            "-la", 
+            "/home/test"
+        ], 
+        "delta": "0:00:00.005110", 
+        "end": "2019-05-29 13:52:57.259031", 
+        "failed": false, 
+        "rc": 0, 
+        "start": "2019-05-29 13:52:57.253921", 
+        "stderr": "", 
+
+
+
+
+
+
+--------------
+
+26.Passing Variables Into Playbooks at the Command Line: 
+
+
+--- # VARIABLES AT COMMAND LINE PASSING EXAMPLE
+
+- hosts: '{{ hosts }}'
+  user: '{{ user }}'
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks: 
+    - name: Install SOME SOFTWARE
+      yum: pkg={{pkg}} state=latest
+
+
+
+
+***Command To Pass Variables from commandLINE:
+
+ ansible-playbook 26.fromcmdline.yml  --extra-vars "hosts=apacheweb user=test pkg=elinks"
+
+
+
+
+--------------
+
+
+27.Using Jinja2 Templates: Jinja2 is python extension. For using template files.
+
+1. create a configuration file  -> test.conf
+
+
+# configuration for our custom widget
+
+<Connectivity>
+  ConnectionType SSH
+</Connectivity>
+
+
+<Account Information>
+  Username test
+  Password Password1
+</Account Information>
+
+<System Information>
+  DistributionType Linux
+</System Information>   
+
+
+
+
+2. Creating J2  template -> test.conf.j2
+
+
+# configuration for our custom widget
+
+<Connectivity>
+  ConnectionType {{ connectionType }}
+</Connectivity>
+
+
+<Account Information>
+  Username {{ userName }}
+  Password {{ userPassword }}
+</Account Information>
+
+<System Information>
+  DistributionType {{ ansible_os_family }}
+</System Information>
+
+
+
+
+ 3. ->  then test.yml
+
+vim  test.yml
+
+--- # Testing the J2 Template Module
+
+- hosts: apacheweb:debian
+  connection: ssh
+  user: test
+  become: yes
+  become_method: sudo 
+  gather_facts: yes
+  vars: 
+    userName: test 
+    userPassword: password123
+    connectionType: SFTP
+  tasks:
+    - name: Install the configuration file customized for the system
+      template: src=test.conf.j2  dest=/home/test/test.conf owner=test group=test mode=750
+
+
+
+                                          
+
+----------
+
+28.LocalAction: Here we are pinging the remote server before we install the packages
+
+--- # LOCALACTION DEMO
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks: 
+    - name: Ping application server before we run our install
+      local_action: command ping -c 4 vijaythilak3c.mylabserver.com
+    - name: Install Lynx on remote server
+      yum: pkg=lynx state=latest
+
+
+
+
+----------
+
+29.DelegateTo: We are going to use a called Delegation ( LocalAction & DelegateTo --> are almost same )
+
+--- # DELEGATE TO FUNCTION DEMO
+
+-  hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh
+   tasks: 
+     - name: Run a remote ping on the application server
+       shell: ping -c 4  vijaythilak5c.mylabserver.com > /home/test/playbooks/ping.out   # It should be any server 
+       delegate_to: 127.0.0.1 
+     - name: Install a packages
+       yum: pkg=lynx state=latest
+
+
+
+
+                       
+
+
+
+
+
+
+
+
+                      :::::::::::EXERCISE::::::::::::::
+
+========
+
+2.Running Ansible Commands Against Hosts: 
+
+
+   ansible --version
+   ansible all --list-hosts
+   
+   cat /etc/ansible/hosts
+ 
+   ansible -m shell -a "yum install -y lynx" apacheweb -b
+ 
+   ansible apacheweb  -m yum -a 'pkg=telnet state=installed update_cache=true' -b
+  
+
+
+========
+
+3.Querying a Remote System: 
+
+   ansible apacheweb -m setup -a 'filter=ans*ipv4*'
+ 
+   ansible apacheweb -m shell -a 'yum list installed | grep lynx'
+ 
+   ansible apacheweb -m shell -a 'tail -n 10 /var/log/dmesg'
+
+
+=========
+
+4.Create a Simple Playbook:
+
+  1. While logged into your control server, create a directory called 'Playbooks' and create an empty file in it called 'deploy_DATE.yml'. Replace DATE with today's date:
+
+         mkdir Playbooks
+         cd Playbooks 
+         touch deploy_09242015.yml
+
+
+ 2. Edit the 'deploy_DATE.yml' file and create a structure that will run the following against ONE of the groups in your host configuration:
+
+  - Using the package installation module, install lynx package
+
+  - Using the package installation module, determine if the telnet package is installed
+          
+
+          - hosts: appserver
+            tasks:
+              - name: Install Lynx on App Servers
+                yum: pkg=lynx state=latest update_cache=true
+              - name: Querying for Telnet Install
+                yum: pkg=telnet state=present update_cache=true
+
+
+3.Run the playbook and display the results:
+
+
+test@vijaythilak1c 4.create_simple_playbook]$ ansible-playbook deploy_DATE.yml 
+
+
+
+4. Edit the playbook in Step #2 and create a new section for a DIFFERENT group in your host configuration as follows:
+
+  - Using the package installation module, install the telnet package
+
+  - Using the package installation module, determine if the lynx package is installed
+
+
+   - hosts: appserver
+     tasks:
+       - name: Install Lynx on App Servers
+         yum: pkg=lynx state=latest update_cache=true
+       - name: Querying for Telnet Install
+         yum: pkg=telnet state=present update_cache=true
+
+   
+
+   - hosts: apacheweb
+     tasks:
+       - name: Install Telnet on App Servers
+         yum: pkg=telnet state=latest update_cache=true
+       - name: Querying for lynx Install
+         yum: pkg=lynx state=present update_cache=true
+
+
+
+
+==========
+
+5.Building a Larger Playbook - Target Section:
+
+--- # My First YAML Playbook for Ansible
+
+- hosts: apacheweb
+
+  user: test
+
+  sudo: yes
+
+  connection: ssh
+
+  gather_facts: no
+
+
+
+===========
+
+6.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------- MODULES -----------------------------------
+
+
+TEMPLATES : 
+
+--- # MODULE NAME
+
+-  hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh
+   tasks: 
+
+
+
+
+1.PAUSE MODULE: Used to Pause play
+
+  - name: Install HTTPD
+    action: yum name=httpd state=installed
+  - name: Pausing
+    pause:
+      prompt: Press ENTER to Continue...
+      #or
+      seconds: 10 
+  - name: Verify lynx installation
+    action: yum name=lynx state=present
+
+
+
+
+2.The 'WaitFor' Module:  waiting for some dependency whether it availabilty of file or database or Port isn't listen. It pushes particular port and till that port expection its done by contorller. waiting for particualr  event to complete.
+
+
+
+--- # The Wait For Module
+
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh
+   tasks:
+     - name: Installing Apache Tomcat
+       action: yum name=tomcat state=installed
+     - name: Waiting for Port 8080 to Listen
+       wait_for:
+         port: 8080
+         state: started
+     - name: Verifying Lynx Installation
+       action: yum name=lynx state=present
+
+
+
+
+
+3.THE File MODULE : 
+
+
+ansible -m file -a 'path=/etc/fstab' all
+
+
+
+
+
+
+4. THE 'YUM' MODULE ::
+
+--- #  The 'Yum' Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Install Apache Web Server
+      yum: pkg=httpd state=installed
+ 
+
+  TO UPGRADE ALL SYSTEMS:
+    - name: Equivalent to YUM UPGRADE
+      yum: pkg=* state=latest 
+
+
+
+
+
+5. THE 'APT' MODULE :
+
+--- # THE APT MODULE
+
+- hosts: debian
+  user: test 
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Install Apache Web Server
+      apt: name=apache2 state=installed update_cache=yes
+
+TO UPDATE APT in ALL SYSTEMS:
+    - name: Equivalent to APT UPDATE
+      apt: pkg=* state=latest 
+
+
+
+
+6. The 'Service' Module:
+
+
+--- #  The 'Service' Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Install Apache Web Server
+      yum: pkg=httpd state=installed
+    - name: Starting Service
+      service: name=httpd state=started
+    - name: Enable HTTPD After reboot
+      service: name=httpd enabled=yes      
+
+
+
+
+7. Copy Module :
+
+--- #  The 'Copy' Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Copy from the files directory test file
+      action: copy src=files/test4.txt dest=/home/test/test4.txt owner=test group=test mode=0655 backup=yes
+   
+
+
+
+
+8. Command Module: In this module, we have create script 'test.sh' on ansible client and then execute the playbook
+
+
+On Ansible Client:::
+cat test.sh
+
+#!/bin/bash
+echo "This is a message" > output.txt
+
+
+--- # Command Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Check for python packages
+      command: /home/test/testing/test.sh
+      args:
+        chdir: /home/test/testing
+
+
+
+
+9.Cron Module:
+
+
+To ADD CRON :::
+
+--- #  The 'Cron' Module
+
+- hosts: apacheweb
+  user: test 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Add a CRON Job to the Test User
+      cron: name="list dirs" minute="0" hour="1" job="ls -al /var/log > /home/test/cron.log"
+
+
+TO REMOVE CRON :::
+
+--- #  The 'Cron' Module
+
+- hosts: apacheweb
+  user: test 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Add a CRON Job to the Test User
+      cron: name="list dirs" state=absent
+
+
+
+
+10. Debug Module:
+
+--- # Debug Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Install Web server
+      yum: name=httpd state=installed
+    - debug: msg="Equivalent of sudo yum install httpd"
+    - name: How long has the system been up?
+      shell: /usr/bin/uptime
+      register: result
+    - debug: var=result
+
+
+
+
+11. The 'Fetch' Module: It allows us to grab file from remote location and bring it back here. [Copy files from clients to server]
+ 
+--- # Fetch Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Copy remote hosts file to control server
+      fetch: src=/etc/hosts dest=/home/test
+
+      or
+ 
+ ### Instead of copy the directory, it will copy file with name
+
+   - name: Copy remote hosts file to control server
+     fetch: src=/etc/hosts dest=/home/test/prefix-{{ ansible_hostname }} flat=yes
+
+
+
+12.The 'User' Module:
+
+
+TO ADD USER: 
+
+--- # User Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Add the user called tstapache to the apache web client
+      user: name=tatapache comment="Test Apache" group=wheel
+
+
+TO REMOVE USER:
+
+--- # User Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Remove the user called tstapache to the apache web client
+      user: name=tatapache state=absent remove=yes
+
+
+
+
+13.The 'AT' Module:
+
+--- # AT Module
+
+- hosts: apacheweb
+  user: test 
+  become: yes
+  become_method: sudo 
+  connection: ssh
+  gather_facts: no 
+  tasks:
+    - name: Example of a future command with the AT module
+      at: command="ls -la /var/log > /home/test/at.log" count=1 units="minutes"      ### unique=true  ==> this will create a new file otherwise ansible will reply already run.
+
+
+
+
+14.The 'DNF' Module:
+
+--- # The 'DNF' Module
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh 
+  gather_facts: no
+  tasks: 
+    - name: Using DNF module to install packages
+      dnf: name=httpd state=latest  ## TO uninstall state=absent
+
+
+TO UPGRADE using DNF: 
+
+     - name: Using DNF module to install packages
+       dnf: name=* state=latest   
+
+
+
+
+15.The 'Apache2_Module' Module: used to enable or disable modules 
+
+
+--- # Apache2_Module
+
+- hosts: debian
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh 
+  gather_facts: no
+  tasks:
+    - name: Disable the alias module in apache2
+      apache2_module: state=absent name=alias
+
+
+
+
+16.The 'SetFact' Module: 
+
+--- # 'SetFact' Module
+
+- hosts: debian
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh 
+  gather_facts: no
+  vars: 
+    playbook_version: 0.1
+  tasks:
+    - name: Local Variable display
+      set_fact: 
+        singlefact: SOMETHING
+    - debug: msg={{  playbook_version }}
+    - debug: msg={{ singlefact }}
+
+
+
+
+
+17. The 'Stat' Module: This module gets the information from remote  hosts whether file or directory is  exist or not.
+
+
+--- # Stat Module
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh 
+  gather_facts: no
+  tasks:
+    - name: Does a file/directory in a path exist or not ?
+      stat: path=/home/test/abc
+      register: p 
+    - debug: msg="The Path exists and is a Directory"
+      when: p.stat.isdir is defined and p.stat.isdir 
+
+
+
+
+
+
+
+
+
+
+
+
+=====  ========= THE ROLES ======== ====
+
+
+1.  Roles - The Directory Structure:
+
+
+   1.Create a diectory structure --> /home/test/Roles/roles -> mkdir appserver common debian webservers
+  
+   2.inside the each 4 server create a directory structure like this  -> mkdir defaults files handlers meta tasks templates vars 
+          [[[ OR ]]]
+
+
+  USe this command   to # ansible-galaxy init  role_name -> this will create the defaults files handlers meta tasks templates vars 
+
+
+2. Roles -  Overriding the Default Roles Path:
+
+  
+  1.GO to /etc/ansible/ansible.cfg, Then add the below Line
+
+  roles_path = /home/test/Roles/roles:/etc/ansible/roles --> By doing this, 
+  
+
+
+3. Roles - Role Based Tasks:  
+
+  1.Go to Roles/roles -> webservers -> 
+
+
+  Go to tasks, then create a file "main.yml"
+
+
+- name: Install Apache Web server
+  yum: pkg=httpd state=latest
+  notify: Restart HTTPD
+
+
+  2.GO  to handlers directory, then create a file "main.yml": 
+
+  - name: Restart HTTPD
+    service: name=httpd state=restarted
+
+
+  3.GO to vars directory, then create a file "main.yml": 
+  
+  copyright_msg: Copyright2019
+
+
+  4.Now we are going to install apache webserver. Before that we are going to webserver then  create a  playbook called "webserver.yml"
+
+  --- # Master Playbooks for web server
+
+  - hosts: apacheweb
+    user: test
+    become: yes
+    become_method: sudo
+    connection: ssh 
+    roles: 
+      - webservers
+
+
+
+4.Task Order - Pre and Post Tasks: 'Roles' will always run first in terms of 'tasks'. If we want 
+
+ --- # Master Playbooks for web server
+
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh 
+   pre_tasks: 
+     - name: When did  the ROLE  start
+       raw: date > /home/test/startofrole.log
+   roles: 
+     - webservers
+   post_tasks: 
+     - name: How long the ROLE end.
+       raw: date > /home/test/startofrole.log
+
+
+
+
+5. Roles - Conditional Execution: Here "when" is condition 
+
+  Go to webserver -> then tasks -> create a  main.yml
+
+  - name: Install Apache Web server on (Redhat/Centos)
+    yum: pkg=httpd state=latest
+    when: "ansible_os_family == 'RedHat'"
+    ignore_errors: yes
+  - name: Install Apache web server on (Debian/Ubuntu) 
+    apt: pkg=apache2 state=latest
+    when: "ansible_os_family == 'Debian'"
+    ignore_errors: yes
+
+
+
+
+
+6. Roles - Variable Substitution:
+
+
+-->> Here, Go to webserver -> then vars -> create a  main.yml
+
+ copyright_msg: Copyright2019
+ redhat_apache: httpd
+ debian_apache: apache2 
+
+-->> Go to webserver -> then tasks -> create a  main.yml
+
+  - name: Install Apache Web server on (Redhat/Centos)
+    yum: pkg={{ redhat_apache }} state=latest
+    when: "ansible_os_family == 'RedHat'"
+    ignore_errors: yes
+  - name: Install Apache web server on (Debian/Ubuntu) 
+    apt: pkg={{ debian_apache }} state=latest
+    when: "ansible_os_family == 'Debian'"
+    ignore_errors: yes
+
+
+
+7.Roles - Handlers:
+
+ -->> Here, Go to webserver -> then handlers create a main.yml
+
+ - name: Restart HTTPD
+   service: name={{ redhat_apache }} state=restarted
+   when: "ansible_os_family == 'RedHat'"
+   ignore_errors: yes
+ - name: Restart Apache2
+   service: name={{ debian_apache }} state=restarted
+   when: "ansible_os_family == 'Debian'"
+   ignore_errors: yes
+
+ -->> go to task/main.yml file, then edit 
+
+  - name: Install Apache Web server on (Redhat/Centos)
+    yum: pkg=httpd state=latest
+    when: "ansible_os_family == 'RedHat'"
+    notify: Restart HTTPD
+    ignore_errors: yes
+  - name: Install Apache web server on (Debian/Ubuntu) 
+    apt: pkg=apache2 state=latest
+    when: "ansible_os_family == 'Debian'"
+    notify:  Restart Apache2
+    ignore_errors: yes
+
+
+
+
+
+  8.Roles - Using Notification:
+
+-->> go to handlers/main.yml file, then edit 
+
+ - name: Restart HTTPD
+   service: name={{ redhat_apache }} state=restarted
+   when: "ansible_os_family == 'RedHat'"
+   ignore_errors: yes
+ - name: Restart Apache2
+   service: name={{ debian_apache }} state=restarted
+   when: "ansible_os_family == 'Debian'"
+   ignore_errors: yes
+ - name: Install Telnet
+   yum: pkg=telnet state=latest
+
+-->> go to task/main.yml file, then edit 
+
+  - name: Install Apache Web server on (Redhat/Centos)
+    yum: pkg=httpd state=latest
+    when: "ansible_os_family == 'RedHat'"
+    notify: Restart HTTPD
+    ignore_errors: yes
+  - name: Install Apache web server on (Debian/Ubuntu) 
+    apt: pkg=apache2 state=latest
+    when: "ansible_os_family == 'Debian'"
+    notify:  Restart Apache2
+    ignore_errors: yes
+  - debug: msg='Need to install Telnet'
+    when: "ansible_os_family == 'RedHat'"
+    notify: Install Telnet
+
+
+
+
+9.Roles - Configuring Alternate Roles Paths : Here  we changing the default path in ansible.cfg
+
+
+roles_path = /home/test/Roles/roles --> By doing this, 
+
+
+
+
+10.Roles - Conditional Include Statements : 
+
+ -->> Create 2 directorys as below : GO to roles directory 
+
+   mkdir redhat_webservers debian_webservers 
+   cd redhat_webservers ; cp -rf webserver/* . ; cd debian_webservers ; cp -rf webserver/* .
+   cp webservers.yml redhatonly.yml ; cp webservers.yml debianonly.yml
+
+
+** then edit the redhatonly.yml & debianonly.yml in roles - webservers to redhat_webservers and same for debian_webservers
+
+  --- # Master Playbooks for web server
+
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh 
+   pre_tasks: 
+     - name: When did  the ROLE  start
+       raw: date > /home/test/startofrole.log
+   roles: 
+     - redhat_webservers 
+     - debian_webservers
+   post_tasks: 
+     - name: How long the ROLE end.
+       raw: date > /home/test/startofrole.log
+
+** then change the roles in Master webservers:
+
+  --- # Master Playbooks for web server
+
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh 
+   pre_tasks: 
+     - name: When did  the ROLE  start
+       raw: date > /home/test/startofrole.log
+   roles: 
+     - { role: redhat_webservers, when: "ansible_os_family == 'RedHat'" }
+     - { role: debian_webservers, when: "ansible_os_family == 'Debian'" }
+   post_tasks: 
+     - name: How long the ROLE end.
+       raw: date > /home/test/startofrole.log
+
+
+
+
+11. Roles - Waiting For Events: we are going to install httpd on ""Redhat""  based system and wait  for port 80 to listen.
+
+GO to task/main.yml
+
+  - name: Install Apache Web server on (Redhat/Centos)
+    yum: pkg=httpd state=latest
+    when: "ansible_os_family == 'RedHat'"
+  - name: Wait for  the service to start listening on port 80
+    wait_for: port=80 state: started
+  - debug: msg='Need to install Telnet'
+    when: "ansible_os_family == 'RedHat'"
+    notify: Install Telnet
+
+then cp webservers.yml file to redhat.yml then edit 
+
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh 
+   pre_tasks: 
+     - name: When did  the ROLE  start
+       raw: date > /home/test/startofrole.log
+   roles: 
+     - { role: redhat_webservers, when: "ansible_os_family == 'RedHat'" }
+   post_tasks: 
+     - name: How long the ROLE end.
+       raw: date > /home/test/startofrole.log
+
+
+
+
+
+12. Roles - Executing a Task Until: here we can mention the no of times to check the  status. Once the 
+
+go to task/main.yml
+
+  - name: Install Apache Web server on (Redhat/Centos)
+    yum: pkg=httpd state=latest
+    when: "ansible_os_family == 'RedHat'"
+  - shell: systemctl status httpd
+    register: result
+    until: result.stdout.find("active (running)") != -1
+    retries: 5
+    delay: 5
+  - debug: var=result   
+  - debug: msg='Need to install Telnet'
+    when: "ansible_os_family == 'RedHat'"
+    notify: Install Telnet
+
+
+13. Roles - Breaking a Playbook Into a Role: we are breaking the below optimized playbook by roles.
+
+
+    1. Create a directory under Roles/roles 
+              ansible-galaxy init testrole
+
+  -->> Here we are going to break the playbook by roles using tasks,handlers and master_testrole.yml, then create a file 'testrole.yml' inside the roles directory 
+
+
+--- # Outline to Playbook Translation
+
+- hosts: apacheweb
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks:
+  - name: date/time stamp for when the playbook start
+    command: /usr/bin/date
+    register: timestamp_start
+  - debug: var=timestamp_start                                    #raw: /usr/bin/date > /home/test/playbook_start.log
+  - name: install the apacheweb server
+    yum: pkg=httpd state=latest
+    notify: start HTTPD 
+  - name: install client software - telnet
+    yum: pkg=telnet state=latest
+  - name: install client software - lynx
+    yum: pkg=lynx state=latest
+  - name: log all the packages install on the system
+    command: yum list installed                                  #raw: yum list installed > /home/test/installed.log
+    register: installed_result
+  - debug: var=installed_result
+  - name: date/time stamp for when the playbook end
+    command: /usr/bin/date                                       #raw: /usr/bin/date > /home/test/playbook_end.log
+    register: timestamp_end
+  - debug: var=timestamp_end
+  handlers: 
+  - name: start HTTPD
+    service: name=httpd state=restarted
+  - name: verify the web server is running
+    command: systemctl status httpd
+    register: result
+    ignore_errors: yes 
+  - debug: var=result
+
+
+ -->> then go to  tasks and create main.yml 
+
+
+  - name: install the apacheweb server
+    yum: pkg=httpd state=latest
+    notify: start HTTPD 
+  - name: Add a list of software 
+    yum: pkg={{ item }} state=latest
+    with_items: 
+    - telnet
+    - lynx 
+  - name: verify the web server is running
+    command: systemctl status httpd
+    register: result
+    ignore_errors: yes 
+  - name: log all the packages install on the system
+    command: yum list installed                                  
+    register: installed_result
+  - debug: var=result
+  - debug: var=installed_result
+
+
+ -->> then go to  handler and create main.yml
+
+
+  - name: start HTTPD
+    service: name=httpd state=restarted 
+   
+
+ -->>  Let's create master_testrole.yml
+
+
+   --- # MASTER  ROLE FOR TESTROLE
+
+   - hosts: apacheweb
+     user: test 
+     become: yes
+     become_method: sudo 
+     connection: ssh
+     pre_tasks: 
+     - name: date/time stamp for when the playbook start
+       command: /usr/bin/date
+       register: timestamp_start
+     - debug: var=timestamp_start
+     roles: 
+     - testrole
+     post_tasks: 
+     - name: date/time stamp for when the playbook end
+       command: /usr/bin/date                                      
+       register: timestamp_end
+     - debug: var=timestamp_end
+
+
+
+
+14.Roles - Using Tags : We can install a particular packages instead of all. Here httpd is also in main.yml file, but using tags we install only telnet and lynx.
+
+
+-->> Edit  the tasks/main.yml 
+
+   - name: install the apacheweb server
+       yum: pkg=httpd state=latest
+       notify: start HTTPD 
+     - name: Add a list of software 
+       yum: pkg={{ item }} state=latest
+       with_items: 
+       - telnet
+       - lynx 
+       tags: install_list 
+     - name: verify the web server is running
+       command: systemctl status httpd
+       register: result
+       ignore_errors: yes 
+     - name: log all the packages install on the system
+       command: yum list installed   | grep telnet                             
+       register: installed_result
+       tags: install_result
+     - debug: var=result
+     - debug: var=installed_result
+
+
+** COMMANDS to Run Tags : ansible-playbook --tags "install_list" master_testrole.yml --limit "apacheweb"
+
+
+
+
+
+
+15. Roles - Using Jinja2 Templates : It gives the ability to customize information to the variables & the  system being installed on. 
+
+
+     1. create a configuration file  -> test.conf
+     
+     
+     # configuration for our custom widget
+     
+     <Connectivity>
+       ConnectionType SSH
+     </Connectivity>
+     
+     
+     <Account Information>
+       Username test
+       Password Password1
+     </Account Information>
+     
+     <System Information>
+       DistributionType Linux
+     </System Information>   
+     
+     
+     
+     
+     2. Creating J2  template -> test.conf.j2
+     
+     
+     # configuration for our custom widget
+     
+     <Connectivity>
+       ConnectionType {{ connectionType }}
+     </Connectivity>
+     
+     
+     <Account Information>
+       Username {{ userName }}
+       Password {{ userPassword }}
+     </Account Information>
+     
+     <System Information>
+       DistributionType {{ ansible_os_family }}
+     </System Information>
+     
+     
+     3. create a test.yml 
+     
+     --- # Testing the J2 Template Module
+     
+     - hosts: apacheweb:debian
+       user: test 
+       become: yes
+       become_method: sudo
+       connection: ssh
+       gather_facts: yes
+       vars: 
+         userName: test
+         userPassword: password123
+         connectionType: SFTP
+       tasks: 
+         - name: Install the configuration file customized for the system
+           template: src=test.conf.j2 dest=/home/test/test.conf onwer=test group= test mode=750
+
+
+
+
+
+16.Roles - DelegateTo :
+
+ --- # MASTER PLAYBOOK DEMONSTRATING THE DELEGATETO COMMAND
+     
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh 
+   pre_tasks: 
+     - name: ping the application server
+       raw: ping -c 4 vijaythilak1c > /home/test/Roles/roles/ping.out
+       delegate_to: 127.0.0.1
+   roles: 
+     - webservers
+
+
+
+
+
+17. Roles - LocalAction: copy th delegate_to.yml and change the local_action
+
+--- # MASTER PLAYBOOK DEMONSTRATING THE DELEGATETO COMMAND
+     
+ - hosts: apacheweb
+   user: test
+   become: yes
+   become_method: sudo
+   connection: ssh 
+   pre_tasks: 
+     - name: ping the application server
+       local_action: raw ping -c 4 vijaythilak1c > /home/test/Roles/roles/ping.out  
+   roles: 
+     - webservers
+
+
+    
+
+
+
+
+
+
+   Galaxy Introduction and Usage : 
+
+https://galaxy.ansible.com/home
+   
+
+
+Ansible 2.0 - Modules: The 'Find' Module ::
+
+   Here Copy the "webservers" directory to "reporting", then go to task/main.yml. copy webservers.yml to reporting.yml
+
+   - name: gebnerate a YAML JSON Formatted Output for log files that need to be cleaned update_cache
+     find: paths="/var/log" age='1d' recurse="yes" size="100k" patterns='*.log'
+     register: result
+   - debug: var=result
+
+
+   Then edit the reporting.yml 
+
+   --- # Master Playbooks for web server
+
+   - hosts: apacheweb
+     user: test
+     become: yes
+     become_method: sudo
+     connection: ssh 
+     pre_tasks: 
+       - name: When did  the ROLE  start
+         raw: date > /home/test/startofrole.log
+     roles: 
+       - reporting
+     post_tasks: 
+       - name: How long the ROLE end.
+         raw: date > /home/test/startofrole.log
+  
+
+
+
+
+  Ansible 2.0 - Modules: The 'Package' Module :: THis module will automatically find the os_family and install the package for REDHAT and Debain 
+
+
+  --- # ANSIBLE 2.0 PACKAGE MODULE DEMO
+
+  - hosts: all
+    user: test
+    become: yes
+    become_method: sudo 
+    connection: ssh
+    gather_facts: yes
+    tasks: 
+    - name: Install Telnet CLient on ALL Distribution Types
+      package: name=telnet state=latest
+
+
+
+
+
+
+Ansible 2.0 - Roles: User Privilege Escalation ::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------
+
+--- # DC installation
+
+- hosts: webservers
+  user: test
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks: 
+  - name: copy file from server to clients
+    copy: src=/home/test/echo.sh dest=/home/test/ owner=test group=test mode=0655
+  - name: execute script
+    command: /home/test/echo.sh 
+
+
+
+
+--- # DC installation
+
+- hosts: all 
+  user: sysadmin
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks: 
+  - name: Copying file from server to clients
+    copy: src=/home/sysadmin/Downloads/DCLinAgent-\ 10.0.468.L/ dest=/home/sysadmin/Downloads/ owner=sysadmin group=sysadmin mode=0775
+  - name: Executing DCLinAgent
+    command: /home/sysadmin/Downloads/DCLinAgent-\ 10.0.468.L/DesktopCentral_LinuxAgent.bin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

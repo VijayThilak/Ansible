@@ -1,0 +1,54 @@
+Introduction to Regular Expression (regex or RegEx)
+Regular expression (pronounced as regex or RegEx) are not any programming language, but it is most important tool of any programming language or Script, regular expression matches any specific pattern as per our requirement. RegEx is not an application we run nor any software we buy or download, it’s simply a pattern matching which usage our syntax to find out our required pattern.
+Different programming language supports different syntax of regex, like for Java the syntax is different, for .net its different and for python it is different. As a DevOps course we will focus mostly on Linux and Admin role, and we will be mostly using Python syntax or Perl Syntax. Almost the syntax is same in all language they differ in only few points.
+Where and why we usage regex?
+We can use regex in various scenario like for eg.:- From a long list of customer details if we want to fetch only email address or contact number of customer, in that case regex will be boon for us, suppose from a long list of files any spell is mistaken at multiple places (like instead of color we need to change it to colour) then in that case regex helps us a lot, from a long list of URL if we want to select only .com , here also regex will do our task in a second, we will see the practical implementations of all this in our further session.
+So, in simple word we can say, regular expressions are strings that are used to match and manipulate text.
+Important Point in regex: -
+→ In regex we don’t have only one solution for any pattern matching, there can be multiple solution, some may be simpler while some may be lengthy but faster.
+→ The most important point to keep in mind while writing regex is that we don’t have to write regex only to match our pattern but also to consider that non required pattern should not be matched. The best way to learn regex is only to Practice and Practice.
+The best URL for practice is: — https://regexr.com/
+a sample of regex is: -
+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} or (\d{1,3}\.){3}\d{1,3} we had seen here we had selected ipaddress in more
+then one way, in the similar way there can be more than one solution for any regex. How the above regex is selecting
+ipv4, that we will discuss in our further session.
+RegEx can match the characters, digits, Unicode, and length also doesn’t matter in regex, we can match as many as
+character or word in regex.
+Few important syntaxes of regex: -
+^ → Matches the start of line
+$ → Matches the end of line
+[a-z] → Matches any character from a to z
+[a] →Matches only for a single character a
+[A-Z] →Matches for A to Z
+[a-zA-Z] → Matches a to z or A to Z
+[A-z] → This is not used randomly as unicode value of A is 65 and for lower case z is 122, so all the character which comes between this value would be selected which is a rare use case
+[ABC] →This will look for the character A or B or C
+[^ABC] → ^ here means negation, means all character in the word will be selected except A or B or C
+. → dot matches any character except linebreak
+\w → This matches any word character including underscore and numeric value. \w is equivalent to [a-zA-Z_]
+\W → Not a word (in most cases the uppercase of the syntax will have opposite meaning of lowercase)
+\d → Matches any digit from 0–9, equivalent to [0–9]
+\D → Matches any non-digit character
+\s → matches any white-space (space, tabs, linebreak)
+\S → Not white space
+\b → Word boundary
+\B → Not word boundary
+(abc) → Capturing group where it will search for all word which contains word abc
+\1 → This will reference the group present, suppose we have created 2 group in any pattern matching then \1 will represent first present group
+(?=ABC) → Positive Lookahead, Matches the group after the main expression, if ABC is matched then that word will be selected but ABC will not be printed while other syntax pattern would be printed
+(?!ABC) → Negative Lookahead, If ABC is matched then the selection for that word will be discarder
+(?<=ABC) → Positive Lookbehind, Matches a group before the main expression
+(?<!ABC) → Negative Lookbehind
++ → Matches one or more of the matching patterns
+Star * → Matches 0 or more of matching pattern, only difference between + and * is + need at least one time the matching pattern but * is fine with zero times as well
+{1,5} → Here 1 is the minimum count and 5 is the maximum count, means a word can exist for minimum of one time and a maximum of 5 time
+{1,} → Here only minimum is specified, means min of 1 should exist, maximum count can be any limit
+{2} → Here the count is exact and fixed, that exact 2 count will be taken
+? → Optional, when we give ? means either true or false, in both situation it accepts the value
+| → Behaves like OR operator
+i → For case insensitive
+g → Global search
+For more learning on DevOps get in touch with https://www.facebook.com/groups/devopsg/
+To View videos on regexp visit youtube channel “DevOps G” →
+https://www.youtube.com/channel/UCw8GNopnFTLRnEGiv0fOQIg/featured
+1
